@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Cyan to Brand Blue Gradient -->
+    <linearGradient id="mmsBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00A3E0"/>
+      <stop offset="100%" stop-color="#074592"/>
+    </linearGradient>
+
+    <!-- Brand Red Gradient -->
+    <linearGradient id="mmsRedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff4958"/>
+      <stop offset="100%" stop-color="#d62534"/>
+    </linearGradient>
+
+    <!-- Brand Green Gradient -->
+    <linearGradient id="mmsGreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#66d925"/>
+      <stop offset="100%" stop-color="#4aa31a"/>
+    </linearGradient>
+
+    <!-- Soft drop shadow for inner ribbons -->
+    <filter id="mmsShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2.5" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(0, -10)">
+    <!-- ================= 3 FIGURE HEADS (DOTS) ================= -->
+    <!-- Top Figure Head (Brand Navy Blue #074592) -->
+    <circle cx="255" cy="82" r="16.5" fill="#074592" />
+
+    <!-- Left Figure Head (Brand Coral Red #ff4958) -->
+    <circle cx="106" cy="272" r="16" fill="#ff4958" />
+
+    <!-- Right Figure Head (Brand Lime Green #66d925) -->
+    <circle cx="362" cy="296" r="15.5" fill="#66d925" />
+
+    <!-- ================= OUTER EMBRACING HEART / GLOBE SWOOSHES ================= -->
+    <!-- 1. Red Swoosh (Top-Left Shoulder) -->
+    <path d="M 125,280 C 70,240 60,140 145,100 C 205,72 265,115 300,140" 
+          fill="none" 
+          stroke="url(#mmsRedGrad)" 
+          stroke-width="12" 
+          stroke-linecap="round" />
+
+    <!-- 2. Navy Blue Swoosh (Top-Right Shoulder down to inner bottom) -->
+    <path d="M 235,110 C 290,90 380,110 405,180 C 430,250 370,330 220,380" 
+          fill="none" 
+          stroke="#074592" 
+          stroke-width="12.5" 
+          stroke-linecap="round" />
+
+    <!-- 3. Lime Green Swoosh (Bottom Chin & left-up curve) -->
+    <path d="M 148,150 C 130,270 185,410 260,432 C 315,446 348,390 340,320" 
+          fill="none" 
+          stroke="url(#mmsGreenGrad)" 
+          stroke-width="16" 
+          stroke-linecap="round" />
+
+    <!-- ================= INNER ABSTRACT SCRIPT / RIBBON ================= -->
+    <g filter="url(#mmsShadow)">
+      <!-- Left Cyan Loop -->
+      <path d="M 112,192 C 122,208 140,212 152,198 C 160,188 155,170 142,176 C 125,184 105,188 120,205 C 132,218 165,214 175,182"
+            fill="none"
+            stroke="url(#mmsBlueGrad)"
+            stroke-width="15"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+
+      <!-- Center Crimson Curve -->
+      <path d="M 166,238 C 172,192 188,145 204,195 C 214,228 226,242 240,212 C 248,196 242,172 232,165"
+            fill="none"
+            stroke="url(#mmsRedGrad)"
+            stroke-width="15"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+
+      <!-- Script Dots above center loops -->
+      <circle cx="214" cy="162" r="7.5" fill="#074592" />
+      <circle cx="218" cy="160" r="4" fill="#ff4958" />
+
+      <!-- Green Flourish rising upward -->
+      <path d="M 238,245 C 242,190 252,135 250,130"
+            fill="none"
+            stroke="#66d925"
+            stroke-width="5"
+            stroke-linecap="round" />
+
+      <!-- Center-Right Green Loop -->
+      <path d="M 240,210 C 246,182 258,175 268,205 C 274,225 272,242 255,242"
+            fill="none"
+            stroke="url(#mmsGreenGrad)"
+            stroke-width="15"
+            stroke-linecap="round" />
+
+      <!-- Far Right Red/Orange Loop -->
+      <path d="M 275,202 C 285,178 318,178 335,190 C 352,202 342,238 315,240 C 290,242 294,208 322,198 C 342,190 354,202 345,218"
+            fill="none"
+            stroke="url(#mmsRedGrad)"
+            stroke-width="14"
+            stroke-linecap="round" />
+    </g>
+
+    <!-- ================= TYPOGRAPHY (BOTTOM) ================= -->
+    <!-- "ModernMinds" in bold brand navy #074592 -->
+    <text x="250" y="480" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Outfit', 'Plus Jakarta Sans', sans-serif" 
+          font-size="44" 
+          font-weight="900" 
+          letter-spacing="-0.5px"
+          fill="#074592">ModernMinds</text>
+
+    <!-- "Consulting Services Pvt.Ltd" in brand red #ff4958 -->
+    <text x="250" y="508" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Outfit', 'Plus Jakarta Sans', sans-serif" 
+          font-size="20.5" 
+          font-weight="800" 
+          letter-spacing="0.2px"
+          fill="#ff4958">Consulting Services Pvt.Ltd</text>
+  </g>
+</svg>
