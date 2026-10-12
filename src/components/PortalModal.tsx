@@ -360,16 +360,29 @@ export const PortalModal: React.FC<PortalModalProps> = ({
               </div>
               <div className="flex items-center gap-2 flex-wrap text-xs text-blue-200 mt-0.5">
                 <span>Modernminds Consulting Services | Islamabad Head Office</span>
-                <span className="hidden sm:inline text-blue-300/40">|</span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[#66d925] font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#66d925]" />
-                  SECP: SECP-ISB-2018-0941
-                </span>
-                <span className="hidden md:inline text-blue-300/40">|</span>
-                <span className="hidden md:inline-flex items-center gap-1 text-white font-medium">
-                  <Phone className="w-3.5 h-3.5 text-[#ff4958]" />
-                  Hotline: 051-4862273
-                </span>
+                {!isAdmin && (
+                  <>
+                    <span className="hidden sm:inline text-blue-300/40">|</span>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[#66d925] font-semibold">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#66d925]" />
+                      SECP: SECP-ISB-2018-0941
+                    </span>
+                    <span className="hidden md:inline text-blue-300/40">|</span>
+                    <span className="hidden md:inline-flex items-center gap-1 text-white font-medium">
+                      <Phone className="w-3.5 h-3.5 text-[#ff4958]" />
+                      Hotline: 051-4862273
+                    </span>
+                  </>
+                )}
+                {isAdmin && (
+                  <>
+                    <span className="hidden sm:inline text-blue-300/40">|</span>
+                    <span className="hidden sm:inline-flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-[#66d925] animate-pulse inline-block" />
+                      Live Cloud Sync & Firestore Active
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -560,6 +573,22 @@ export const PortalModal: React.FC<PortalModalProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Security & Pass</span>
                 </button>
+
+                {/* SECP Registration & Hotline adjusted cleanly into subnav menu */}
+                <div className="hidden xl:flex items-center gap-2 pl-3 ml-2 border-l border-slate-300 text-[11px] text-slate-500 shrink-0">
+                  <span className="flex items-center gap-1 font-semibold text-slate-700 bg-white px-2 py-1 rounded-md border border-slate-200">
+                    <ShieldCheck className="w-3 h-3 text-[#66d925]" />
+                    SECP: SECP-ISB-2018-0941
+                  </span>
+                  <a
+                    href="tel:0514862273"
+                    className="flex items-center gap-1 font-semibold text-slate-700 hover:text-[#074592] bg-white px-2 py-1 rounded-md border border-slate-200"
+                    title="Direct Hotline"
+                  >
+                    <Phone className="w-3 h-3 text-[#ff4958]" />
+                    Hotline: 051-4862273
+                  </a>
+                </div>
               </div>
             </div>
 

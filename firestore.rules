@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Connection test document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Leads / Applications submitted by visitors from any device
+    match /leads/{leadId} {
+      allow read, write: if true;
+    }
+
+    // Client case files
+    match /applications/{appId} {
+      allow read, write: if true;
+    }
+
+    // Uploaded documents
+    match /documents/{docId} {
+      allow read, write: if true;
+    }
+
+    // Job vacancies & brochures
+    match /job_opportunities/{jobId} {
+      allow read, write: if true;
+    }
+
+    // System configurations: disclaimer_popup, branding, cms, destinations, credentials
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Additional collections
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

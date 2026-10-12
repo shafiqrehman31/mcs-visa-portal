@@ -5,7 +5,7 @@ import {
   StudentDocument, 
   NotificationItem, 
   ContactInquiry, 
-  MilestoneStage,
+  MilestoneStage, 
   DocumentStatus,
   Milestone,
   SiteContent,
@@ -31,6 +31,14 @@ import {
   DEFAULT_ADMIN_CREDENTIALS,
   DEFAULT_DISCLAIMER_POPUP
 } from '../data/mockData';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { db } from './firebase';
 
 const STORAGE_KEYS = {
   USERS: 'mcs_users_v1',
@@ -66,6 +74,22 @@ export const onStorageUpdate = (callback: () => void) => {
   return () => {};
 };
 
+// Sanitize object for Firestore (removes undefined properties)
+function cleanForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanForFirestore);
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      clean[key] = cleanForFirestore(val);
+    }
+  }
+  return clean;
+}
+
 // Initialization helper
 const getStored = <T>(key: string, defaultValue: T): T => {
   if (typeof window === 'undefined') return defaultValue;
@@ -91,6 +115,149 @@ const setStored = <T>(key: string, value: T): void => {
     console.error(`Error writing ${key} to storage:`, e);
   }
 };
+
+// ============ FIREBASE REAL-TIME CLOUD SYNCHRONIZATION ============
+let hasInitializedFirebaseSync = false;
+
+export const initFirestoreSync = () => {
+  if (hasInitializedFirebaseSync || typeof window === 'undefined') return;
+  hasInitializedFirebaseSync = true;
+
+  try {
+    // 1. Sync Leads (public inquiries and opportunity applications from all devices)
+    onSnapshot(collection(db, 'leads'), (snapshot) => {
+      if (!snapshot.empty) {
+        const cloudLeads: ContactInquiry[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudLeads.push(docSnap.data() as ContactInquiry);
+        });
+        cloudLeads.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setStored(STORAGE_KEYS.LEADS, cloudLeads);
+      }
+    }, (error) => {
+      console.warn('Leads live sync listener:', error.message);
+    });
+
+    // 2. Sync Applications
+    onSnapshot(collection(db, 'applications'), (snapshot) => {
+      if (!snapshot.empty) {
+        const cloudApps: StudentApplication[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudApps.push(docSnap.data() as StudentApplication);
+        });
+        cloudApps.sort((a, b) => new Date(b.lastUpdated || '').getTime() - new Date(a.lastUpdated || '').getTime());
+        setStored(STORAGE_KEYS.APPLICATIONS, cloudApps);
+      }
+    }, (error) => {
+      console.warn('Applications live sync listener:', error.message);
+    });
+
+    // 3. Sync Documents
+    onSnapshot(collection(db, 'documents'), (snapshot) => {
+      if (!snapshot.empty) {
+        const cloudDocs: StudentDocument[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudDocs.push(docSnap.data() as StudentDocument);
+        });
+        cloudDocs.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+        setStored(STORAGE_KEYS.DOCUMENTS, cloudDocs);
+      }
+    }, (error) => {
+      console.warn('Documents live sync listener:', error.message);
+    });
+
+    // 4. Sync Job Opportunities
+    onSnapshot(collection(db, 'job_opportunities'), (snapshot) => {
+      if (!snapshot.empty) {
+        const cloudJobs: JobOpportunity[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudJobs.push(docSnap.data() as JobOpportunity);
+        });
+        setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, cloudJobs);
+      }
+    }, (error) => {
+      console.warn('Jobs live sync listener:', error.message);
+    });
+
+    // 5. Sync Disclaimer Popup Settings
+    onSnapshot(doc(db, 'settings', 'disclaimer_popup'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as DisclaimerPopupSettings;
+        setStored(STORAGE_KEYS.DISCLAIMER_POPUP, data);
+      }
+    }, (error) => {
+      console.warn('Disclaimer live sync listener:', error.message);
+    });
+
+    // 6. Sync Admin Credentials
+    onSnapshot(doc(db, 'settings', 'admin_credentials'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as AdminCredentials;
+        setStored(STORAGE_KEYS.ADMIN_CREDENTIALS, data);
+      }
+    }, (error) => {
+      console.warn('Credentials live sync listener:', error.message);
+    });
+
+    // 7. Sync Branding
+    onSnapshot(doc(db, 'settings', 'branding'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as BrandingSettings;
+        setStored(STORAGE_KEYS.BRANDING, data);
+        if (data.faviconUrl) {
+          applyFavicon(data.faviconUrl);
+        }
+      }
+    }, (error) => {
+      console.warn('Branding live sync listener:', error.message);
+    });
+
+    // 8. Sync Site Content CMS
+    onSnapshot(doc(db, 'settings', 'site_content'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as SiteContent;
+        setStored(STORAGE_KEYS.SITE_CONTENT, data);
+      }
+    }, (error) => {
+      console.warn('CMS live sync listener:', error.message);
+    });
+
+    // 9. Sync Global Destinations (target_countries)
+    onSnapshot(doc(db, 'settings', 'target_countries'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data()?.list) {
+        setStored(STORAGE_KEYS.TARGET_COUNTRIES, docSnap.data()?.list);
+      }
+    }, (error) => {
+      console.warn('Destinations live sync listener:', error.message);
+    });
+
+    // 10. Sync Work & Visit Countries
+    onSnapshot(doc(db, 'settings', 'work_visit_countries'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data()?.list) {
+        setStored(STORAGE_KEYS.WORK_AND_VISIT_COUNTRIES, docSnap.data()?.list);
+      }
+    }, (error) => {
+      console.warn('Work visit live sync listener:', error.message);
+    });
+
+    // 11. Sync Team Members
+    onSnapshot(doc(db, 'settings', 'team_members'), (docSnap) => {
+      if (docSnap.exists() && docSnap.data()?.list) {
+        setStored(STORAGE_KEYS.TEAM_MEMBERS, docSnap.data()?.list);
+      }
+    }, (error) => {
+      console.warn('Team live sync listener:', error.message);
+    });
+
+  } catch (err) {
+    console.warn('Error setting up Firestore snapshot listeners:', err);
+  }
+};
+
+// Run sync initialization on boot
+if (typeof window !== 'undefined') {
+  initFirestoreSync();
+}
 
 // ============ AUTHENTICATION & CREDENTIALS ============
 export const getUsers = (): User[] => getStored<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
@@ -129,6 +296,15 @@ export const updateAdminCredentials = (
   };
 
   setStored(STORAGE_KEYS.ADMIN_CREDENTIALS, updated);
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'settings', 'admin_credentials'), cleanForFirestore(updated)).catch(e => {
+      console.warn('Firestore write admin_credentials error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write admin_credentials error:', e);
+  }
 
   // Sync with users list
   const users = getUsers();
@@ -178,6 +354,7 @@ export const loginAdmin = (usernameOrEmail: string, passwordAttempt: string): { 
       adminUser.name = creds.displayName;
       adminUser.email = creds.email;
     }
+
     setCurrentUser(adminUser);
     return { success: true, user: adminUser };
   }
@@ -450,8 +627,18 @@ export const createInitialApplicationForStudent = (user: User): StudentApplicati
     milestones: milestonesList
   };
 
-  apps.push(newApp);
+  apps.unshift(newApp);
   setStored(STORAGE_KEYS.APPLICATIONS, apps);
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'applications', newApp.id), cleanForFirestore(newApp)).catch(e => {
+      console.warn('Firestore write application error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write application error:', e);
+  }
+
   return newApp;
 };
 
@@ -517,6 +704,15 @@ export const advanceApplicationMilestone = (
   apps[appIndex] = app;
   setStored(STORAGE_KEYS.APPLICATIONS, apps);
 
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'applications', app.id), cleanForFirestore(app)).catch(e => {
+      console.warn('Firestore update application error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore update application error:', e);
+  }
+
   // Automated notification dispatched to student
   const completedMilestoneObj = app.milestones.find(m => m.stage === stageToComplete);
   addNotification({
@@ -566,6 +762,15 @@ export const uploadDocument = (
   docs.unshift(newDoc);
   setStored(STORAGE_KEYS.DOCUMENTS, docs);
 
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'documents', newDoc.id), cleanForFirestore(newDoc)).catch(e => {
+      console.warn('Firestore upload document error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore upload document error:', e);
+  }
+
   // Notify student
   addNotification({
     userId,
@@ -586,9 +791,18 @@ export const updateDocumentStatus = (
   const idx = docs.findIndex(d => d.id === docId);
   if (idx === -1) return null;
 
-  const doc = { ...docs[idx], status, notes: notes || docs[idx].notes };
-  docs[idx] = doc;
+  const updatedDoc = { ...docs[idx], status, notes: notes || docs[idx].notes };
+  docs[idx] = updatedDoc;
   setStored(STORAGE_KEYS.DOCUMENTS, docs);
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'documents', updatedDoc.id), cleanForFirestore(updatedDoc)).catch(e => {
+      console.warn('Firestore update document error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore update document error:', e);
+  }
 
   // Automated notification to student
   const statusLabels: Record<DocumentStatus, string> = {
@@ -599,13 +813,13 @@ export const updateDocumentStatus = (
   };
 
   addNotification({
-    userId: doc.userId,
-    title: `Document Status: ${doc.title}`,
+    userId: updatedDoc.userId,
+    title: `Document Status: ${updatedDoc.title}`,
     message: `${statusLabels[status]}. ${notes ? `Officer note: "${notes}"` : ''}`,
     type: "document"
   });
 
-  return doc;
+  return updatedDoc;
 };
 
 // ============ NOTIFICATIONS ============
@@ -641,7 +855,7 @@ export const markAllNotificationsAsRead = (userId: string): void => {
   setStored(STORAGE_KEYS.NOTIFICATIONS, updated);
 };
 
-// ============ CONTACT LEADS ============
+// ============ CONTACT LEADS & APPLICATIONS (CROSS-DEVICE PERSISTENT) ============
 export const getLeads = (): ContactInquiry[] => {
   return getStored<ContactInquiry[]>(STORAGE_KEYS.LEADS, INITIAL_LEADS);
 };
@@ -650,7 +864,7 @@ export const submitContactInquiry = (data: Omit<ContactInquiry, 'id' | 'createdA
   const leads = getLeads();
   const newLead: ContactInquiry = {
     ...data,
-    id: `lead-${Date.now()}`,
+    id: `lead-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     createdAt: new Date().toISOString(),
     status: 'new'
   };
@@ -658,11 +872,94 @@ export const submitContactInquiry = (data: Omit<ContactInquiry, 'id' | 'createdA
   leads.unshift(newLead);
   setStored(STORAGE_KEYS.LEADS, leads);
 
+  // 1. Immediately persist to Firebase Firestore collection 'leads'
+  // This allows applications submitted from ANY device to show instantly on the Admin console!
+  try {
+    setDoc(doc(db, 'leads', newLead.id), cleanForFirestore(newLead)).catch(e => {
+      console.warn('Firestore write lead error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write lead error:', e);
+  }
+
+  // 2. Also register a matching case in applications list so admin sees it in Cases tab as well!
+  try {
+    const isWorkPermit = (data.category === 'work_permit') || 
+      data.serviceRequired.toLowerCase().includes('job') || 
+      data.serviceRequired.toLowerCase().includes('work');
+    const isVisitVisa = (data.category === 'visit_visa') || 
+      data.serviceRequired.toLowerCase().includes('visit') || 
+      data.serviceRequired.toLowerCase().includes('tourist');
+
+    const appCategory = isWorkPermit ? 'work_permit' : isVisitVisa ? 'visit_visa' : 'student';
+
+    const linkedApp: StudentApplication = {
+      id: `app-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      studentId: `applicant-${Date.now()}`,
+      studentName: data.fullName,
+      studentEmail: data.email || `${data.phone.replace(/[^0-9]/g, '')}@applicant.modernminds.pk`,
+      studentPhone: data.phone,
+      targetCountry: data.targetCountry,
+      category: appCategory,
+      program: data.serviceRequired,
+      university: data.city ? `${data.city} Applicant Lodgment` : 'Islamabad Lodgment Desk',
+      intake: 'Active Application 2026',
+      serviceType: data.serviceRequired,
+      occupationOrField: data.qualification,
+      currentStage: 'initial_assessment',
+      progressPercentage: 15,
+      assignedCounselor: 'Sher Muhammad Khan',
+      lastUpdated: new Date().toISOString(),
+      caseRef: `MCS-${(data.targetCountry || 'PK').substring(0, 2).toUpperCase()}-${appCategory === 'work_permit' ? 'WP' : appCategory === 'visit_visa' ? 'VV' : 'ST'}-2026-${Math.floor(100 + Math.random() * 900)}`,
+      milestones: [
+        {
+          id: "m1",
+          stage: "initial_assessment",
+          title: "Initial Profile & Opportunity Assessment",
+          description: `Applicant details: ${data.fullName}, City: ${data.city}. Requirement: ${data.serviceRequired}. Note: ${data.message || 'New applicant'}`,
+          status: "in_progress",
+          actionRequired: "Case officer verification and consular review."
+        },
+        {
+          id: "m2",
+          stage: appCategory === 'work_permit' ? "labor_market_approval" : "document_attestation",
+          title: appCategory === 'work_permit' ? "Labor Clearance & Employer Filing" : "Document Attestation & Verification",
+          description: "Preparation of official employer or admission submission.",
+          status: "upcoming"
+        },
+        {
+          id: "m3",
+          stage: "visa_file_prep",
+          title: "Embassy File Preparation",
+          description: "Legal drafting, financial evaluation, and visa appointment.",
+          status: "upcoming"
+        },
+        {
+          id: "m4",
+          stage: "visa_approved",
+          title: "Visa Grant & Relocation",
+          description: "Final visa sticker endorsement and departure coordination.",
+          status: "upcoming"
+        }
+      ]
+    };
+
+    const currentApps = getApplications();
+    currentApps.unshift(linkedApp);
+    setStored(STORAGE_KEYS.APPLICATIONS, currentApps);
+
+    setDoc(doc(db, 'applications', linkedApp.id), cleanForFirestore(linkedApp)).catch(e => {
+      console.warn('Firestore write case app error:', e);
+    });
+  } catch (err) {
+    console.warn('Case app auto-creation notice:', err);
+  }
+
   // Notify admin
   addNotification({
     userId: 'all',
-    title: `📩 New Visa Inquiry: ${data.fullName} (${data.targetCountry})`,
-    message: `Contact request from ${data.city}. Phone: ${data.phone}. Service: ${data.serviceRequired}.`,
+    title: `📩 New Opportunity Application: ${data.fullName} (${data.targetCountry})`,
+    message: `Application submitted from ${data.city}. Phone: ${data.phone}. Service/Job: ${data.serviceRequired}.`,
     type: 'alert'
   });
 
@@ -681,6 +978,16 @@ export const updateLeadStatus = (
   const lead = { ...leads[idx], status, notes: notes || leads[idx].notes };
   leads[idx] = lead;
   setStored(STORAGE_KEYS.LEADS, leads);
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'leads', lead.id), cleanForFirestore(lead)).catch(e => {
+      console.warn('Firestore update lead error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore update lead error:', e);
+  }
+
   return lead;
 };
 
@@ -692,12 +999,31 @@ export const getSiteContent = (): SiteContent => {
 export const updateSiteContent = (newContent: SiteContent): SiteContent => {
   setStored(STORAGE_KEYS.SITE_CONTENT, newContent);
   triggerStorageUpdate();
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'settings', 'site_content'), cleanForFirestore(newContent)).catch(e => {
+      console.warn('Firestore write site_content error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write site_content error:', e);
+  }
+
   return newContent;
 };
 
 export const resetSiteContent = (): SiteContent => {
   setStored(STORAGE_KEYS.SITE_CONTENT, DEFAULT_SITE_CONTENT);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'site_content'), cleanForFirestore(DEFAULT_SITE_CONTENT)).catch(e => {
+      console.warn('Firestore reset site_content error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore reset site_content error:', e);
+  }
+
   return DEFAULT_SITE_CONTENT;
 };
 
@@ -738,6 +1064,16 @@ export const updateBranding = (newBranding: Partial<BrandingSettings>): Branding
     applyFavicon(merged.faviconUrl);
   }
   triggerStorageUpdate();
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'settings', 'branding'), cleanForFirestore(merged)).catch(e => {
+      console.warn('Firestore write branding error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write branding error:', e);
+  }
+
   return merged;
 };
 
@@ -751,6 +1087,15 @@ export const resetBranding = (): BrandingSettings => {
   setStored(STORAGE_KEYS.BRANDING, defaultBranding);
   applyFavicon('/logo.svg');
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'branding'), cleanForFirestore(defaultBranding)).catch(e => {
+      console.warn('Firestore reset branding error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore reset branding error:', e);
+  }
+
   return defaultBranding;
 };
 
@@ -769,6 +1114,16 @@ export const saveTargetCountry = (country: TargetCountryInfo): TargetCountryInfo
   }
   setStored(STORAGE_KEYS.TARGET_COUNTRIES, list);
   triggerStorageUpdate();
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'settings', 'target_countries'), { list: cleanForFirestore(list) }).catch(e => {
+      console.warn('Firestore write target_countries error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write target_countries error:', e);
+  }
+
   return country;
 };
 
@@ -776,11 +1131,28 @@ export const deleteTargetCountry = (id: string): void => {
   const list = getTargetCountries().filter(c => c.id !== id);
   setStored(STORAGE_KEYS.TARGET_COUNTRIES, list);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'target_countries'), { list: cleanForFirestore(list) }).catch(e => {
+      console.warn('Firestore delete target_country error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore delete target_country error:', e);
+  }
 };
 
 export const resetTargetCountries = (): TargetCountryInfo[] => {
   setStored(STORAGE_KEYS.TARGET_COUNTRIES, TARGET_COUNTRIES);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'target_countries'), { list: cleanForFirestore(TARGET_COUNTRIES) }).catch(e => {
+      console.warn('Firestore reset target_countries error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore reset target_countries error:', e);
+  }
+
   return TARGET_COUNTRIES;
 };
 
@@ -799,6 +1171,16 @@ export const saveWorkAndVisitCountry = (country: WorkAndVisitCountryInfo): WorkA
   }
   setStored(STORAGE_KEYS.WORK_AND_VISIT_COUNTRIES, list);
   triggerStorageUpdate();
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'settings', 'work_visit_countries'), { list: cleanForFirestore(list) }).catch(e => {
+      console.warn('Firestore write work_visit_countries error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write work_visit_countries error:', e);
+  }
+
   return country;
 };
 
@@ -806,11 +1188,28 @@ export const deleteWorkAndVisitCountry = (id: string): void => {
   const list = getWorkAndVisitCountries().filter(c => c.id !== id);
   setStored(STORAGE_KEYS.WORK_AND_VISIT_COUNTRIES, list);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'work_visit_countries'), { list: cleanForFirestore(list) }).catch(e => {
+      console.warn('Firestore delete work_visit_country error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore delete work_visit_country error:', e);
+  }
 };
 
 export const resetWorkAndVisitCountries = (): WorkAndVisitCountryInfo[] => {
   setStored(STORAGE_KEYS.WORK_AND_VISIT_COUNTRIES, WORK_AND_VISIT_COUNTRIES);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'work_visit_countries'), { list: cleanForFirestore(WORK_AND_VISIT_COUNTRIES) }).catch(e => {
+      console.warn('Firestore reset work_visit_countries error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore reset work_visit_countries error:', e);
+  }
+
   return WORK_AND_VISIT_COUNTRIES;
 };
 
@@ -829,6 +1228,16 @@ export const saveTeamMember = (member: TeamMember): TeamMember => {
   }
   setStored(STORAGE_KEYS.TEAM_MEMBERS, list);
   triggerStorageUpdate();
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'settings', 'team_members'), { list: cleanForFirestore(list) }).catch(e => {
+      console.warn('Firestore write team_members error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write team_members error:', e);
+  }
+
   return member;
 };
 
@@ -836,11 +1245,28 @@ export const deleteTeamMember = (id: string): void => {
   const list = getTeamMembers().filter(m => m.id !== id);
   setStored(STORAGE_KEYS.TEAM_MEMBERS, list);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'team_members'), { list: cleanForFirestore(list) }).catch(e => {
+      console.warn('Firestore delete team_member error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore delete team_member error:', e);
+  }
 };
 
 export const resetTeamMembers = (): TeamMember[] => {
   setStored(STORAGE_KEYS.TEAM_MEMBERS, TEAM_MEMBERS);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'team_members'), { list: cleanForFirestore(TEAM_MEMBERS) }).catch(e => {
+      console.warn('Firestore reset team_members error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore reset team_members error:', e);
+  }
+
   return TEAM_MEMBERS;
 };
 
@@ -859,6 +1285,16 @@ export const saveJobOpportunity = (job: JobOpportunity): JobOpportunity => {
   }
   setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, list);
   triggerStorageUpdate();
+
+  // Sync to Firestore
+  try {
+    setDoc(doc(db, 'job_opportunities', job.id), cleanForFirestore(job)).catch(e => {
+      console.warn('Firestore write job_opportunity error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write job_opportunity error:', e);
+  }
+
   return job;
 };
 
@@ -866,11 +1302,28 @@ export const deleteJobOpportunity = (id: string): void => {
   const list = getJobOpportunities().filter(j => j.id !== id);
   setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, list);
   triggerStorageUpdate();
+
+  try {
+    deleteDoc(doc(db, 'job_opportunities', id)).catch(e => {
+      console.warn('Firestore delete job_opportunity error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore delete job_opportunity error:', e);
+  }
 };
 
 export const resetJobOpportunities = (): JobOpportunity[] => {
   setStored(STORAGE_KEYS.JOB_OPPORTUNITIES, INITIAL_JOB_OPPORTUNITIES);
   triggerStorageUpdate();
+
+  try {
+    INITIAL_JOB_OPPORTUNITIES.forEach(job => {
+      setDoc(doc(db, 'job_opportunities', job.id), cleanForFirestore(job)).catch(() => {});
+    });
+  } catch (e) {
+    console.warn('Firestore reset job_opportunities error:', e);
+  }
+
   return INITIAL_JOB_OPPORTUNITIES;
 };
 
@@ -886,14 +1339,30 @@ export const saveDisclaimerPopup = (settings: DisclaimerPopupSettings): Disclaim
   };
   setStored(STORAGE_KEYS.DISCLAIMER_POPUP, updated);
   triggerStorageUpdate();
+
+  // Sync to Firestore so it shows immediately across all devices!
+  try {
+    setDoc(doc(db, 'settings', 'disclaimer_popup'), cleanForFirestore(updated)).catch(e => {
+      console.warn('Firestore write disclaimer_popup error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore write disclaimer_popup error:', e);
+  }
+
   return updated;
 };
 
 export const resetDisclaimerPopup = (): DisclaimerPopupSettings => {
   setStored(STORAGE_KEYS.DISCLAIMER_POPUP, DEFAULT_DISCLAIMER_POPUP);
   triggerStorageUpdate();
+
+  try {
+    setDoc(doc(db, 'settings', 'disclaimer_popup'), cleanForFirestore(DEFAULT_DISCLAIMER_POPUP)).catch(e => {
+      console.warn('Firestore reset disclaimer_popup error:', e);
+    });
+  } catch (e) {
+    console.warn('Firestore reset disclaimer_popup error:', e);
+  }
+
   return DEFAULT_DISCLAIMER_POPUP;
 };
-
-
-

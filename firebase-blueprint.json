@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "Public contact inquiry and job/visa opportunity application submitted by visitors across devices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "targetCountry": { "type": "string" },
+        "category": { "type": "string" },
+        "serviceRequired": { "type": "string" },
+        "qualification": { "type": "string" },
+        "experienceYears": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "fullName", "phone", "targetCountry", "createdAt", "status"]
+    },
+    "Application": {
+      "title": "Application",
+      "description": "Student or work permit case file being tracked through milestones",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "studentPhone": { "type": "string" },
+        "targetCountry": { "type": "string" },
+        "category": { "type": "string" },
+        "program": { "type": "string" },
+        "university": { "type": "string" },
+        "intake": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "currentStage": { "type": "string" },
+        "progressPercentage": { "type": "number" },
+        "assignedCounselor": { "type": "string" },
+        "lastUpdated": { "type": "string" },
+        "caseRef": { "type": "string" }
+      },
+      "required": ["id", "studentName", "targetCountry", "currentStage", "caseRef"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "Uploaded student or applicant document in vault",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "uploadDate": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "status"]
+    },
+    "JobOpportunity": {
+      "title": "JobOpportunity",
+      "description": "International job opening and brochure details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "country": { "type": "string" },
+        "countryFlag": { "type": "string" },
+        "sector": { "type": "string" },
+        "companyName": { "type": "string" },
+        "location": { "type": "string" },
+        "salary": { "type": "string" },
+        "vacanciesCount": { "type": "string" },
+        "contractDuration": { "type": "string" },
+        "accommodationBenefits": { "type": "string" },
+        "deadline": { "type": "string" },
+        "postedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "country", "companyName"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "Global settings such as disclaimer popup, branding, and CMS site content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/Lead" },
+      "description": "Public inquiries and applications submitted from web forms across any device"
+    },
+    "/applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/Application" },
+      "description": "Client case files and milestone records tracked in admin console"
+    },
+    "/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/Document" },
+      "description": "Client document records uploaded for verification"
+    },
+    "/job_opportunities/{jobId}": {
+      "schema": { "$ref": "#/entities/JobOpportunity" },
+      "description": "Overseas job vacancies and brochure listings"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Config" },
+      "description": "Website global configuration including disclaimer popup, branding, team members, and destinations"
+    }
+  }
+}
