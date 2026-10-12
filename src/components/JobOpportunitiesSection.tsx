@@ -18,9 +18,11 @@ import {
   Phone,
   ExternalLink,
   Award,
-  Users
+  Users,
+  Send,
+  Loader2
 } from 'lucide-react';
-import { getJobOpportunities, onStorageUpdate } from '../services/storageService';
+import { getJobOpportunities, onStorageUpdate, submitContactInquiry } from '../services/storageService';
 import { JobOpportunity } from '../types';
 import { MCS_INFO } from '../data/mockData';
 import { Logo } from './Logo';
@@ -37,6 +39,19 @@ export const JobOpportunitiesSection: React.FC<JobOpportunitiesSectionProps> = (
   const [selectedSectorFilter, setSelectedSectorFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeBrochureJob, setActiveBrochureJob] = useState<JobOpportunity | null>(null);
+
+  // Direct Apply Modal State
+  const [applyingJob, setApplyingJob] = useState<JobOpportunity | null>(null);
+  const [applyForm, setApplyForm] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    city: 'Islamabad',
+    experienceYears: '2-5 Years',
+    message: ''
+  });
+  const [applySubmitting, setApplySubmitting] = useState(false);
+  const [applySuccess, setApplySuccess] = useState(false);
 
   useEffect(() => {
     const sync = () => {
@@ -62,6 +77,14 @@ export const JobOpportunitiesSection: React.FC<JobOpportunitiesSectionProps> = (
   });
 
   const handleApply = (job: JobOpportunity) => {
+    setApplyingJob(job);
+    setApplySuccess(false);
+    if (activeBrochureJob) {
+      setActiveBrochureJob(null);
+    }
+  };
+
+  const handleScrollToContact = (job: JobOpportunity) => {
     if (onSelectJobForInquiry) {
       onSelectJobForInquiry(job.title, job.country);
     }
@@ -72,6 +95,33 @@ export const JobOpportunitiesSection: React.FC<JobOpportunitiesSectionProps> = (
     if (activeBrochureJob) {
       setActiveBrochureJob(null);
     }
+    if (applyingJob) {
+      setApplyingJob(null);
+    }
+  };
+
+  const handleDirectApplySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!applyingJob || !applyForm.fullName || !applyForm.phone) return;
+    setApplySubmitting(true);
+
+    setTimeout(() => {
+      submitContactInquiry({
+        fullName: applyForm.fullName,
+        email: applyForm.email || `${applyForm.phone.replace(/[^0-9]/g, '')}@applicant.modernminds.pk`,
+        phone: applyForm.phone,
+        city: applyForm.city,
+        targetCountry: applyingJob.country,
+        category: 'work_permit',
+        serviceRequired: `Work Permit & Job: ${applyingJob.title} (${applyingJob.companyName})`,
+        qualification: applyForm.experienceYears,
+        experienceYears: applyForm.experienceYears,
+        message: applyForm.message || `Direct application for ${applyingJob.title} in ${applyingJob.country} (${applyingJob.companyName}). Base package: ${applyingJob.salary}.`
+      });
+
+      setApplySubmitting(false);
+      setApplySuccess(true);
+    }, 350);
   };
 
   const handleDownloadBrochure = (job: JobOpportunity) => {
@@ -516,6 +566,189 @@ export const JobOpportunitiesSection: React.FC<JobOpportunitiesSectionProps> = (
                 <span>Apply for this Position in {activeBrochureJob.country}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= DIRECT JOB APPLICATION MODAL ================= */}
+      {applyingJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div 
+            className="w-full max-w-lg bg-white text-slate-900 rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-[#074592] to-slate-900 text-white flex items-center justify-between border-b border-blue-900">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{applyingJob.countryFlag}</span>
+                <div>
+                  <h3 className="text-base font-black text-white leading-tight">
+                    Apply for {applyingJob.title}
+                  </h3>
+                  <p className="text-xs text-blue-200 mt-0.5">
+                    {applyingJob.companyName} • {applyingJob.country} ({applyingJob.salary})
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setApplyingJob(null)}
+                className="p-1.5 text-blue-200 hover:text-white rounded-lg transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 text-left">
+              {applySuccess ? (
+                <div className="py-6 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black text-slate-900">
+                      Application Submitted Successfully!
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
+                      Your file for <strong className="text-slate-900">{applyingJob.title}</strong> has been received at our Islamabad Head Office. Our case desk has logged your record and will contact you via WhatsApp / Phone shortly.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium">
+                    <span>Direct Hotline: </span>
+                    <strong className="text-[#074592]">051-4862273</strong> • <span>Mobile: </span>
+                    <strong className="text-[#074592]">0300-2346521</strong>
+                  </div>
+                  <button
+                    onClick={() => setApplyingJob(null)}
+                    className="px-6 py-2.5 rounded-xl bg-[#074592] text-white text-xs font-bold hover:bg-[#05336e] transition-colors"
+                  >
+                    Done & Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleDirectApplySubmit} className="space-y-4">
+                  <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3 flex items-center justify-between text-xs text-blue-950">
+                    <span className="font-semibold">Target Opportunity:</span>
+                    <span className="font-bold text-[#074592]">{applyingJob.title} ({applyingJob.location})</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Muhammad Usman"
+                      value={applyForm.fullName}
+                      onChange={(e) => setApplyForm({ ...applyForm, fullName: e.target.value })}
+                      className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#074592] outline-hidden"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Phone / WhatsApp Number *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="0300-1234567"
+                        value={applyForm.phone}
+                        onChange={(e) => setApplyForm({ ...applyForm, phone: e.target.value })}
+                        className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#074592] outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Email Address (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="yourname@gmail.com"
+                        value={applyForm.email}
+                        onChange={(e) => setApplyForm({ ...applyForm, email: e.target.value })}
+                        className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#074592] outline-hidden"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Current City
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Islamabad / Rawalpindi / Lahore..."
+                        value={applyForm.city}
+                        onChange={(e) => setApplyForm({ ...applyForm, city: e.target.value })}
+                        className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#074592] outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Relevant Experience
+                      </label>
+                      <select
+                        value={applyForm.experienceYears}
+                        onChange={(e) => setApplyForm({ ...applyForm, experienceYears: e.target.value })}
+                        className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#074592] outline-hidden"
+                      >
+                        <option value="Fresh / Under 1 Year">Fresh / Under 1 Year</option>
+                        <option value="1-3 Years Experience">1-3 Years Experience</option>
+                        <option value="3-5 Years Experience">3-5 Years Experience</option>
+                        <option value="5+ Years Senior Specialist">5+ Years Senior Specialist</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Applicant Message / Qualifications (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Mention passport validity, language skills, or certifications..."
+                      value={applyForm.message}
+                      onChange={(e) => setApplyForm({ ...applyForm, message: e.target.value })}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#074592] outline-hidden"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleScrollToContact(applyingJob)}
+                      className="text-xs font-bold text-[#074592] hover:underline"
+                    >
+                      Fill Full Landing Form Instead
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={applySubmitting}
+                      className="px-6 py-2.5 rounded-xl bg-[#ff4958] hover:bg-[#e63140] text-white text-xs font-black shadow-md shadow-[#ff4958]/30 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {applySubmitting ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Submitting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Submit Application Now</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>
